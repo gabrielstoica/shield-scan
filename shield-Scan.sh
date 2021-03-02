@@ -6,14 +6,20 @@ source google_safe_browsing.sh
 
 #DEFINE VARIABLES
 script_pid=$$
-fingerprints_uploads_dir="/home/kali/Desktop/fingerprints_uploads" #directory where SHA-256 hashes of files in uploads/ directory are stored
-uploads_dir="/home/kali/Desktop/uploads" #absolute path to uploads directory
-log_file="/home/kali/Desktop/log_file.txt" #log file where incidents are journalized
-config_dir_backup="/home/kali/Desktop/config_dir_backup"
-config_dir="/home/kali/Desktop/config_dir"
+fingerprints_uploads_dir=$PWD"/fingerprints_uploads" #directory where SHA-256 hashes of files in uploads/ directory are stored
+
+#VARIABLES FOR INTEGRITY OPTION
+config_dir_backup=""
+config_dir=""
+
+#VARIABLES FOR UPLOAD OPTION
+uploads_dir="" #absolute path to uploads directory
 integrity_file_location=$PWD"/"
 integrity_file="integrity_file.txt"
+
+#VARIABLES FOR LOGGING
 raports_directory=$PWD"/raports"
+log_file="log_file.txt" #log file where incidents are journalized
 url_file="url_file.txt"
 
 #DEFINE COLORS AREA
@@ -261,10 +267,11 @@ function _generate_raport(){
     #$2 backup FILE
     local FILE=$1
     local file_name=$2
+    local file_name_basename=$(echo ${file_name%.*})
     
     local last_modification=$(date -r $FILE)
     local modifications=$(sdiff $config_dir_backup"/"$file_name $FILE)
-    local raport_location=$(echo $raports_directory/"raport_"$file_name)
+    local raport_location=$(echo $raports_directory/"raport_"$file_name_basename".log")
     
     touch $raport_location
     echo -e "Fisierul a fost modificat la data "$last_modification >> $raport_location
@@ -299,7 +306,7 @@ function _help(){
     
     logo_file="logo.txt"
     
-    usage="\n shield-scan - Script created for scanning wordpress uploads/ folder and all wp-*.php files, \nhaving the mission to prevent potential RCE attacks and integrity of configuration files\n(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \nUsage: $(basename "$0") [-h] [-s n] \n \nwhere: \n \t -h Show help commands \n \t -s, -scan Scanning option: expect \"uploads\" or \"integrity\" \n"
+    usage="\nshield scan – Scrip creat pentru detectarea fisierelor noi incarcate in cadrul unui director sensibil \nsi detectarea potentialelor modificari asupra integritatii fisierelor, precum si a atacurilor de tip RCE, XSS si URL phishing \n(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \nMod de utilizare: ./$(basename "$0") [-h] [-u /path/to/uploads/] [-i /path/to/backup/ path/to/actual/] [-d /path/to/file.txt]  \n \navand semnificatia: \n \t -h, -help \n \t\tAjutor, arata modul de utilizare \n \t -u, -uploads [/path/to/directory]  \n \t\tScanarea unui director pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n \t -i, -integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru identifica potentiale \n\t\tmodificari malitioase, precum: atacuri de tip XSS, inserare de cod Javascript, URL-uri de tip phishing \n \t -d, -detect [/path/to/file.txt] \n \t\tMod de operare al scriptului care realizeaza scanarea completa a unui \n \t\tfisier dat ca parametru, impotriva atacurilor de tip XSS, Javascript code, URL-uri de tip phishing "
     
     cat $logo_file
     echo -e $usage
@@ -313,17 +320,25 @@ function main(){
     elif [ $1 == "--help" ] || [ $1 == "-h" ]
     then
         _help
-    elif [ $1 == "-scan" ] || [ $1 == "-s" ]
+    elif [ $1 == "-uploads" ] || [ $1 == "-u" ]
     then
-        if [ $2 == "uploads" ]
+        if [ -d $2 ]
         then
+            uploads_dir=$2
             _scan_uploads $uploads_dir
-        elif [ $2 == "integrity" ]
-        then
-            _scan_integrity
         else
             _help
         fi
+    elif [ $1 == "-integrity" ] || [ $1 == "-i" ]
+    then
+        if [ -d $2 ] && [ -d $3 ]
+        then
+            config_dir_backup=$2
+            config_dir=$3
+            _scan_integrity
+        else
+            _help
+        fi 
     elif [ $1 == "-detect" ] || [ $1 == "-d" ]
     then
         if [ ! -f $2 ]
