@@ -17,13 +17,13 @@ Shield-scan are 3 moduri de utilizare, si anume:
    git clone https://github.com/GabrielStoica/shield-scan.git
    ```
 3. Plaseaza cheia obtinuta in fisierul google_safe_browsing.sh
-  ```sh
+   ```sh
   key="API_KEY_HERE"
-  ```
+   ```
 4. Modifica campul clientID
-  ```sh
+   ```sh
   \"clientId\": \"NUMELE-UTILIZATORULUI\",
-  ```
+   ```
   
 ## Dependinte & API-uri utilizate
 
