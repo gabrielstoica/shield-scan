@@ -8,3 +8,30 @@ Shield-scan are 3 moduri de utilizare, si anume:
   <li>Modul verificare integritate (-i, -integrity): Presupune calcularea hash-urilor fisierelor din cadrul unui folder de backup(de incredere) si compararea acestora cu hash-urile fisierelor din folderul pentru care se doreste a se verifica integritatea.</li>
   <li>Modul detectie continut malitios al unui fisier: Presupune scanarea continutului unui fisier dat ca parametru pentru a identifica cuvinte cheie specifice atacurilor de tip Javascript injection, XSS. De asemenea, prin intermediul API-ului Google Safe Browsing, utilitarul detecteaza URL-uri sensibile, care ar putea constitui atacuri de tip phishing.</li>
 </ol>
+
+## Instalare
+
+1. Obtine o cheie pentru API-ul Google Safe Browsing: [https://developers.google.com/safe-browsing/v4/get-started](https://developers.google.com/safe-browsing/v4/get-started)
+2. Cloneaza local repository-ul
+   ```sh
+   git clone https://github.com/GabrielStoica/shield-scan.git
+   ```
+3. Plaseaza cheia obtinuta in fisierul google_safe_browsing.sh
+  ```sh
+  key="API_KEY_HERE"
+  ```
+4. Modifica campul clientID
+  ```sh
+  \"clientId\": \"NUMELE-UTILIZATORULUI\",
+  ```
+  
+## Dependinte & API-uri utilizate
+
+Pentru identificarea URL-urilor potential malitioase, a fost integrat API-ul:
+- [Google Safe Browsing][2]
+
+Pentru parsarea fisierelor JSON transmise API-ului Google Safe Browsing, utilitarul foloseste Linux Jq:
+- [Linux Jq - JSON Processing][1]
+
+[1]: https://stedolan.github.io/jq/
+[2]: https://developers.google.com/safe-browsing/
