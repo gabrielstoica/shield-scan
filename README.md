@@ -18,11 +18,11 @@ Shield-scan are 3 moduri de utilizare, si anume:
    ```
 3. Plaseaza cheia obtinuta in fisierul google_safe_browsing.sh
    ```sh
-  key="API_KEY_HERE"
+   key="API_KEY_HERE"
    ```
 4. Modifica campul clientID
    ```sh
-  \"clientId\": \"NUMELE-UTILIZATORULUI\",
+   \"clientId\": \"NUMELE-UTILIZATORULUI\",
    ```
   
 ## Dependinte & API-uri utilizate
