@@ -35,6 +35,11 @@ WARNING="$($RED_BG)ATENTIE!$($RESET) $($WHITE)"
 CONFIRM="$($GREEN_BG)INTEGRITATE CONFIRMATA!$($RESET) $($WHITE)"
 NO_XSS="$($GREEN_BG)NU S-A DETECTAT CONTINUT XSS MALITIOS!$($RESET) $($WHITE)"
 
+############################################################
+#Functie care compara hash-urile fisierelor actuale, cu    #
+#cele initiale, stoacate in fisierul "integrity_file.txt"  # 
+#Utilizata in cadrul optiunii -u, -uploads                 #
+############################################################
 function _scan_for_changes(){
     
     local FILE=$1
@@ -46,7 +51,6 @@ function _scan_for_changes(){
     # echo "Trusted hash of " $file_name " " $trusted_hash
     # echo "Actual hash of " $file_name " " $file_hash
     
-    #current_time=$(date +"%Y-%m-%d %T")
     if [ -z $trusted_hash ]  #hash not found => new file
     then
         echo -e "new_file" $file_name
@@ -57,8 +61,8 @@ function _scan_for_changes(){
 }
 
 ###########################################################
-#Function that create fingerprints using SHA-256 algorithm#
-#of trusted files stored in a backup folder               #
+#Functie care calculeaza hash-ul fisierelor din folderul  #
+#de back-up dat ca parametru, folosing algoritmul SHA-256 #
 ###########################################################
 function _compute_backup_integrity(){
     if [ ! -f "$integrity_file_location$integrity_file" ]
@@ -169,6 +173,10 @@ function _create_url_file(){
     fi
 }
 
+###########################################################
+#Functie care scaneaza un fisier impotriva atacurilor de  #
+#tip XSS, Javascript injection si URL-uri malitioase      #
+###########################################################
 function _detect(){
     local FILE=$1
     local blacklist=("xss" "XSS" "onmouseover" "alert" "onerror" "document" "cookie" "document.cookie" "JaVaScRiPt" "iframe")
@@ -224,6 +232,11 @@ function _detect(){
     
 }
 
+############################################################
+#Functie care compara hash-urile fisierelor actuale, cu    #
+#cele initiale, stoacate in fisierul "integrity_file.txt"  # 
+#Utilizata in cadrul optiunii -i, -integrity               #
+############################################################
 function _compare_fingerprints(){
     local FILE=$1
     
