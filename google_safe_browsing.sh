@@ -1,9 +1,9 @@
 #! /usr/bin/bash
 
 api_url="https://safebrowsing.googleapis.com/v4/threatMatches:find?key="
-key="AIzaSyAlMvN5CzQLENY43aeOB08Dwxefmjpo0v4"
+key="YOUR-KEY-HERE"
 command=" \"Content-Type: application/json\""
-json="{ \"client\": { \"clientId\": \"LICENTA-Stoica-Gabriel\", \"clientVersion\": \"1.5.2\" }, \"threatInfo\": { \"threatTypes\": [\"MALWARE\", \"SOCIAL_ENGINEERING\"], \"platformTypes\": [\"WINDOWS\"], \"threatEntryTypes\": [\"URL\"], \"threatEntries\": ["
+json="{ \"client\": { \"clientId\": \"YOUR-NAME-HERE\", \"clientVersion\": \"1.5.2\" }, \"threatInfo\": { \"threatTypes\": [\"MALWARE\", \"SOCIAL_ENGINEERING\"], \"platformTypes\": [\"WINDOWS\"], \"threatEntryTypes\": [\"URL\"], \"threatEntries\": ["
 json_file="json_file.json"
 json_response="json_response.json"
 url_file=""
@@ -20,7 +20,18 @@ BOLD="tput bold"
 WARNING="$($RED_BG)ATENTIE!$($RESET) $($WHITE)"
 NO_URL="$($GREEN_BG)FISIERUL NU CONTINE URL-URI MALITIOASE!$($RESET) $($WHITE)"
 
+function _check_dependencies(){
+    local jq=$(command -v jq)
+    if [ -z "$jq" ]
+    then
+        echo -e "Instalarea dependintelor a inceput..."
+        sudo apt-get install jq
+        echo -e "Instalarea dependintelor a fost finalizata!"
+    fi
+}
+
 function _api_create_json(){
+    _check_dependencies
     url_file=$1
     local file_lines=$(wc -l $url_file | awk '{print $1}')
     #file_line=$((file_lines-1))
