@@ -260,11 +260,12 @@ function _compare_fingerprints(){
         
         echo -e "$($BOLD)$WARNING Fisierul "$file_name" a fost modificat!"
         echo -e "Verificati fisierul raport_"$file_name" pentru a investiga incidentul!"
-        echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/$file_name"" >> $log_file
+        echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/"raport_"$file_name".txt" >> $log_file
         
         _generate_raport $FILE $file_name
     else
         echo -e "$CONFIRM Integritatea fisierului "$file_name" confirmata!"
+        echo -e "[ "$current_time" ] CONFIRM: Integritatea fisierului "$file_name" confirmata!" >> $log_file
     fi
 }
 
