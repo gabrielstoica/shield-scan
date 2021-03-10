@@ -72,7 +72,8 @@ function _compute_backup_integrity(){
             local file_hash=$(sha256sum $FILE | awk '{ print $1 }')
             local file_name="${FILE##$config_dir_backup"/"}"
             echo -e $file_name" --> "$file_hash >> $integrity_file
-        else
+        elif [ -d "$FILE" ]
+		then
             _compute_backup_integrity $FILE
         fi
     done
