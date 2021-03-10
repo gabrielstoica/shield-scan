@@ -69,7 +69,6 @@ function _compute_backup_integrity(){
     do
         if [ -f $FILE ]
         then
-            echo "Fisier $FILE\n"
             local file_hash=$(sha256sum $FILE | awk '{ print $1 }')
             local file_name="${FILE##$config_dir_backup"/"}"
             echo -e $file_name" --> "$file_hash >> $integrity_file
@@ -134,6 +133,7 @@ function _scan_integrity(){
     else
         > $integrity_file
     fi
+    echo -e "Se calculeaza hash-urile fisierelor din directorul de backup..."
     _compute_backup_integrity $config_dir_backup
     _check_integrity $config_dir
 }
