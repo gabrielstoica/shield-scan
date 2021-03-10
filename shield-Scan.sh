@@ -37,7 +37,7 @@ NO_XSS="$($GREEN_BG)NU S-A DETECTAT CONTINUT XSS MALITIOS!$($RESET) $($WHITE)"
 
 ############################################################
 #Functie care compara hash-urile fisierelor actuale, cu    #
-#cele initiale, stoacate in fisierul "integrity_file.txt"  # 
+#cele initiale, stoacate in fisierul "integrity_file.txt"  #
 #Utilizata in cadrul optiunii -u, -uploads                 #
 ############################################################
 function _scan_for_changes(){
@@ -46,7 +46,7 @@ function _scan_for_changes(){
     
     local file_name="${FILE##$uploads_dir"/"}"
     local file_hash=$(sha256sum $FILE | awk '{print $1}')
-    local trusted_hash=$(grep $file_name $integrity_file_location$integrity_file | awk '{print $3}' | head -1)
+    local trusted_hash=$(grep $file_name $integrity_file | awk '{print $3}' | head -1)
     
     # echo "Trusted hash of " $file_name " " $trusted_hash
     # echo "Actual hash of " $file_name " " $file_hash
@@ -65,46 +65,26 @@ function _scan_for_changes(){
 #de back-up dat ca parametru, folosing algoritmul SHA-256 #
 ###########################################################
 function _compute_backup_integrity(){
-    if [ ! -f "$integrity_file_location$integrity_file" ]
-    then
-        touch $integrity_file_location$integrity_file
-    else
-        > $integrity_file_location$integrity_file
-    fi
-    
-    if [ -n "$1" ]
-    then
-        config_dir_backup=$1
-    fi
-    
-    for FILE in "$config_dir_backup/"*
+    for FILE in "$1/"*
     do
         if [ -f $FILE ]
         then
+            echo "Fisier $FILE\n"
             local file_hash=$(sha256sum $FILE | awk '{ print $1 }')
             local file_name="${FILE##$config_dir_backup"/"}"
-            echo -e $file_name" --> "$file_hash >> $integrity_file_location$integrity_file
+            echo -e $file_name" --> "$file_hash >> $integrity_file
         else
-            echo "Fisier din config:" $FILE
-            for _FILE in "$FILE/"*
-            do
-                if [ -f $_FILE ]
-                then
-                    local file_hash=$(sha256sum $_FILE | awk '{ print $1 }')
-                    local file_name="${_FILE##$config_dir_backup"/"}"
-                    echo -e $file_name" --> "$file_hash >> $integrity_file_location$integrity_file
-                fi
-            done
+            _compute_backup_integrity $FILE
         fi
     done
 }
 
 function _scan_uploads(){
-    if [ ! -f "$integrity_file_location$integrity_file" ]
+    if [ ! -f "$integrity_file" ]
     then
-        touch $integrity_file_location$integrity_file
+        touch $integrity_file
     else
-        > $integrity_file_location$integrity_file
+        > $integrity_file
     fi
     
     if [ ! -f "$log_file" ]
@@ -148,8 +128,14 @@ function _scan_uploads(){
 }
 
 function _scan_integrity(){
-    _compute_backup_integrity
-    _check_integrity
+    if [ ! -f "$integrity_file" ]
+    then
+        touch $integrity_file
+    else
+        > $integrity_file
+    fi
+    _compute_backup_integrity $config_dir_backup
+    _check_integrity $config_dir
 }
 
 function _create_url_file(){
@@ -234,7 +220,7 @@ function _detect(){
 
 ############################################################
 #Functie care compara hash-urile fisierelor actuale, cu    #
-#cele initiale, stoacate in fisierul "integrity_file.txt"  # 
+#cele initiale, stoacate in fisierul "integrity_file.txt"  #
 #Utilizata in cadrul optiunii -i, -integrity               #
 ############################################################
 function _compare_fingerprints(){
@@ -242,7 +228,7 @@ function _compare_fingerprints(){
     
     local file_name="${FILE##$config_dir"/"}"
     local file_hash=$(sha256sum $FILE | awk '{print $1}')
-    local trusted_hash=$(grep $file_name $integrity_file_location$integrity_file | awk '{print $3}' | head -1)
+    local trusted_hash=$(grep $file_name $integrity_file | awk '{print $3}' | head -1)
     
     echo "Trusted hash of " $file_name " " $trusted_hash
     echo "Actual hash of " $file_name " " $file_hash
@@ -281,10 +267,10 @@ function _generate_raport(){
     #$2 backup FILE
     local FILE=$1
     local file_name=$2
-    local file_name_basename=$(echo ${file_name%.*})
+    local file_name_basename=$(basename $file_name)
     
     local last_modification=$(date -r $FILE)
-    local modifications=$(sdiff $config_dir_backup"/"$file_name $FILE)
+    local modifications=$(sdiff $config_dir_backup$file_name $FILE)
     local raport_location=$(echo $raports_directory/"raport_"$file_name_basename".log")
     
     touch $raport_location
@@ -295,7 +281,7 @@ function _generate_raport(){
 }
 
 function _check_integrity(){
-    for ENTRY in "$config_dir/"*
+    for ENTRY in "$1/"*
     do
         ###de modificat! doar fisierele de configurare sa fie
         ###scanate
@@ -304,14 +290,7 @@ function _check_integrity(){
             _compare_fingerprints $ENTRY
         elif [ -d $ENTRY ]
         then
-            for ENTRYS in "$ENTRY"/*
-            do
-                if [ -f $ENTRYS ]
-                then
-                    echo "Fisier din config_backup: " $ENTRYS
-                    _compare_fingerprints $ENTRYS
-                fi
-            done
+            _check_integrity $ENTRY
         fi
     done
 }
@@ -352,7 +331,7 @@ function main(){
             _scan_integrity
         else
             _help
-        fi 
+        fi
     elif [ $1 == "-detect" ] || [ $1 == "-d" ]
     then
         if [ ! -f $2 ]
