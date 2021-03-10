@@ -67,7 +67,7 @@ function _scan_for_changes(){
 function _compute_backup_integrity(){
     for FILE in "$1/"*
     do
-        if [ -f $FILE ]
+        if [ -f "$FILE" ]
         then
             local file_hash=$(sha256sum $FILE | awk '{ print $1 }')
             local file_name="${FILE##$config_dir_backup"/"}"
