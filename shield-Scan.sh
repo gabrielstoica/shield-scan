@@ -73,7 +73,7 @@ function _compute_backup_integrity(){
             local file_name="${FILE##$config_dir_backup"/"}"
             echo -e $file_name" --> "$file_hash >> $integrity_file
         elif [ -d "$FILE" ]
-		then
+        then
             _compute_backup_integrity $FILE
         fi
     done
@@ -134,6 +134,14 @@ function _scan_integrity(){
     else
         > $integrity_file
     fi
+    
+    if [ ! -d $raports_directory ]
+    then
+        mkdir $raports_directory
+    else
+        rm -Rf $raports_directory/*
+    fi
+
     echo -e "Se calculeaza hash-urile fisierelor din directorul de backup..."
     _compute_backup_integrity $config_dir_backup
     _check_integrity $config_dir
@@ -257,13 +265,6 @@ function _compare_fingerprints(){
 }
 
 function _generate_raport(){
-    
-    if [ ! -d $raports_directory ]
-    then
-        mkdir $raports_directory
-    else
-        rm -Rf $raports_directory/*
-    fi
     #$1 compromised FILE
     #$2 backup FILE
     local FILE=$1
@@ -271,12 +272,13 @@ function _generate_raport(){
     local file_name_basename=$(basename $file_name)
     
     local last_modification=$(date -r $FILE)
-    local modifications=$(sdiff $config_dir_backup$file_name $FILE)
+    local modifications=$(diff $config_dir_backup$file_name $FILE)
     local raport_location=$(echo $raports_directory/"raport_"$file_name_basename".log")
     
     touch $raport_location
     echo -e "Fisierul a fost modificat la data "$last_modification >> $raport_location
     echo -e "Urmatoarele modificari au avut loc:" >> $raport_location
+    echo -e $modifications
     echo $modifications >> $raport_location
     #local generate_raport=$(sdiff $config_dir_backup"/"$file_name $FILE >> $raport_location)
 }
