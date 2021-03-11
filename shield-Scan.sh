@@ -7,6 +7,9 @@ source google_safe_browsing.sh
 #DEFINE VARIABLES
 script_pid=$$
 fingerprints_uploads_dir=$PWD"/fingerprints_uploads" #directory where SHA-256 hashes of files in uploads/ directory are stored
+logo_file="logo.txt"
+to_be_scanned=0
+scanned=0
 
 #VARIABLES FOR INTEGRITY OPTION
 config_dir_backup=""
@@ -141,7 +144,7 @@ function _scan_integrity(){
     else
         rm -Rf $raports_directory/*
     fi
-
+    
     echo -e "Se calculeaza hash-urile fisierelor din directorul de backup..."
     _compute_backup_integrity $config_dir_backup
     _check_integrity $config_dir
@@ -233,6 +236,8 @@ function _detect(){
 #Utilizata in cadrul optiunii -i, -integrity               #
 ############################################################
 function _compare_fingerprints(){
+    scanned=$((scanned+1))
+    
     local FILE=$1
     
     local file_name="${FILE##$config_dir"/"}"
@@ -286,8 +291,7 @@ function _generate_raport(){
 function _check_integrity(){
     for ENTRY in "$1/"*
     do
-        ###de modificat! doar fisierele de configurare sa fie
-        ###scanate
+        
         if [ -f $ENTRY ]
         then
             _compare_fingerprints $ENTRY
@@ -296,11 +300,11 @@ function _check_integrity(){
             _check_integrity $ENTRY
         fi
     done
+    
+    
 }
 
 function _help(){
-    
-    logo_file="logo.txt"
     
     usage="\nshield scan – Scrip creat pentru detectarea fisierelor noi incarcate in cadrul unui director sensibil \nsi detectarea potentialelor modificari asupra integritatii fisierelor, precum si a atacurilor de tip RCE, XSS si URL phishing \n(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \nMod de utilizare: ./$(basename "$0") [-h] [-u /path/to/uploads/] [-i /path/to/backup/ path/to/actual/] [-d /path/to/file.txt]  \n \navand semnificatia: \n \t -h, -help \n \t\tAjutor, arata modul de utilizare \n \t -u, -uploads [/path/to/directory]  \n \t\tScanarea unui director pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n \t -i, -integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru identifica potentiale \n\t\tmodificari malitioase, precum: atacuri de tip XSS, inserare de cod Javascript, URL-uri de tip phishing \n \t -d, -detect [/path/to/file.txt] \n \t\tMod de operare al scriptului care realizeaza scanarea completa a unui \n \t\tfisier dat ca parametru, impotriva atacurilor de tip XSS, Javascript code, URL-uri de tip phishing "
     
@@ -320,6 +324,7 @@ function main(){
     then
         if [ -d $2 ]
         then
+            cat $logo_file
             uploads_dir=$2
             _scan_uploads $uploads_dir
         else
@@ -329,9 +334,16 @@ function main(){
     then
         if [ -d $2 ] && [ -d $3 ]
         then
+            to_be_scanned=$(find $config_dir -type f| wc -l)
+            cat $logo_file
             config_dir_backup=$2
             config_dir=$3
             _scan_integrity
+            
+            echo -e "Scanare completa! Au fost scanate $scanned/$to_be_scanned fisiere!"
+            echo -e "Folderul de back-up: $config_dir_backup contine $(find $config_dir_backup -type f | wc -l) fisiere"
+            echo -e "Folderul scanat: $config_dir contine $(find $config_dir -type f | wc -l) fisiere"
+            
         else
             _help
         fi
@@ -341,6 +353,7 @@ function main(){
         then
             echo -e "Nu s-a putut realiza deschiderea fisierului $2!"
         else
+            cat $logo_file
             _detect $PWD"/"$2
         fi
     else
