@@ -23,7 +23,9 @@ integrity_file="integrity_file.txt"
 #VARIABLES FOR LOGGING
 raports_directory=$PWD"/raports"
 log_file="log_file.txt" #log file where incidents are journalized
+json_file="incidents.json"
 url_file="url_file.txt"
+json_content="["
 
 #DEFINE COLORS AREA
 RED="tput setaf 1"
@@ -40,7 +42,7 @@ NO_XSS="$($GREEN_BG)NU S-A DETECTAT CONTINUT XSS MALITIOS!$($RESET) $($WHITE)"
 
 ############################################################
 #Functie care compara hash-urile fisierelor actuale, cu    #
-#cele initiale, stoacate in fisierul "integrity_file.txt"  #
+#cele initiale, stocate in fisierul "integrity_file.txt"  #
 #Utilizata in cadrul optiunii -u, -uploads                 #
 ############################################################
 function _scan_for_changes(){
@@ -254,14 +256,16 @@ function _compare_fingerprints(){
         echo -e "$($BOLD)$WARNING Fisier nou adaugat: "$file_name
         echo -e "Ultima modificare asupra fisierului a fost la data "$last_modification
         echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/$file_name"" >> $log_file
-        
+        _write_to_json_content $PWD $file_name "integrity" "Fisier nou" $current_time
+
     elif [ "$file_hash" != "$trusted_hash" ] #hash not equal with trusted one => file modifications
     then
         
         echo -e "$($BOLD)$WARNING Fisierul "$file_name" a fost modificat!"
         echo -e "Verificati fisierul raport_"$file_name" pentru a investiga incidentul!"
         echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/"raport_"$file_name".txt" >> $log_file
-        
+        _write_to_json_content $PWD $file_name "integrity" "Integritate" $current_time
+
         _generate_raport $FILE $file_name
     else
         echo -e "$CONFIRM Integritatea fisierului "$file_name" confirmata!"
@@ -283,7 +287,6 @@ function _generate_raport(){
     touch $raport_location
     echo -e "Fisierul a fost modificat la data "$last_modification >> $raport_location
     echo -e "Urmatoarele modificari au avut loc:" >> $raport_location
-    echo -e $modifications
     echo $modifications >> $raport_location
     #local generate_raport=$(sdiff $config_dir_backup"/"$file_name $FILE >> $raport_location)
 }
@@ -291,7 +294,6 @@ function _generate_raport(){
 function _check_integrity(){
     for ENTRY in "$1/"*
     do
-        
         if [ -f $ENTRY ]
         then
             _compare_fingerprints $ENTRY
@@ -304,9 +306,57 @@ function _check_integrity(){
     
 }
 
+function _check_for_modifications(){
+    
+    local directory=$1
+    local mtime_value=$2
+    local check_directory_name=$(echo "${directory: -1}")
+    
+    if [ $check_directory_name != "/" ]
+    then
+        directory+="/"
+    fi
+    directory+="*"
+    
+    if [ ! -z "$mtime_value" ]
+    then
+        find $directory -mtime $mtime_value
+    else
+        find $directory -mtime -1
+    fi
+    
+}
+
+function _write_to_json_file(){
+    
+    json_content=${json_content::-1}
+    json_content=${json_content}"]"
+    
+    if [ ! -f $json_file ]
+    then
+        touch $json_file
+    else
+        > $json_file
+    fi
+    
+    echo -e $json_content | jq '.' >> $json_file
+    
+}
+#parametrii
+#$1 - platforma, $2 - fisier, $3 - mod, $4 - tip amenintare, $5 - data
+function _write_to_json_content(){
+
+    json_content=${json_content}"{\"platforma\":\""$1"\",";
+    json_content=${json_content}"\"fisier\":\""$2"\",";
+    json_content=${json_content}"\"mod\":\""$3"\",";
+    json_content=${json_content}"\"tip_amenintare\":\""$4"\",";
+    json_content=${json_content}"\"data\":\""$5"\"},";
+
+}
+
 function _help(){
     
-    usage="\nshield scan – Scrip creat pentru detectarea fisierelor noi incarcate in cadrul unui director sensibil \nsi detectarea potentialelor modificari asupra integritatii fisierelor, precum si a atacurilor de tip RCE, XSS si URL phishing \n(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \nMod de utilizare: ./$(basename "$0") [-h] [-u /path/to/uploads/] [-i /path/to/backup/ path/to/actual/] [-d /path/to/file.txt]  \n \navand semnificatia: \n \t -h, -help \n \t\tAjutor, arata modul de utilizare \n \t -u, -uploads [/path/to/directory]  \n \t\tScanarea unui director pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n \t -i, -integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru identifica potentiale \n\t\tmodificari malitioase, precum: atacuri de tip XSS, inserare de cod Javascript, URL-uri de tip phishing \n \t -d, -detect [/path/to/file.txt] \n \t\tMod de operare al scriptului care realizeaza scanarea completa a unui \n \t\tfisier dat ca parametru, impotriva atacurilor de tip XSS, Javascript code, URL-uri de tip phishing "
+    usage="\nshield scan – Scrip creat pentru detectia fisierelor noi incarcate in cadrul unui director sensibil \nsi detectarea potentialelor modificari asupra integritatii fisierelor, precum si a atacurilor de tip RCE, XSS si URL phishing \n(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \nMod de utilizare: ./$(basename "$0") [-h] [-u /path/to/uploads/] [-i /path/to/backup/ path/to/actual/] [-d /path/to/file.txt]  \n \navand semnificatia: \n \t -h, -help \n \t\tAjutor, arata modul de utilizare \n \t -u, -uploads [/path/to/directory]  \n \t\tScanarea unui director pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n \t -i, -integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale \n\t\tmodificari malitioase, precum: atacuri de tip XSS, inserare de cod Javascript, URL-uri de tip phishing \n \t -d, -detect [/path/to/file.txt] \n \t\tEfectueaza scanarea completa a unui \n \t\tfisier dat ca parametru, impotriva atacurilor de tip XSS, Javascript code, URL-uri de tip phishing "
     
     cat $logo_file
     echo -e $usage
@@ -339,6 +389,7 @@ function main(){
             config_dir_backup=$2
             config_dir=$3
             _scan_integrity
+            _write_to_json_file
             
             echo -e "Scanare completa! Au fost scanate $scanned/$to_be_scanned fisiere!"
             echo -e "Folderul de back-up: $config_dir_backup contine $(find $config_dir_backup -type f | wc -l) fisiere"
@@ -355,6 +406,27 @@ function main(){
         else
             cat $logo_file
             _detect $PWD"/"$2
+        fi
+    elif [ $1 == "-check_mod" ] || [ $1 == "-cm" ]
+    then
+        if [[ (! -d $2) || ( -z $2 ) ]]
+        then
+            _help
+        else
+            if [ -z $3 ]
+            then
+                _check_for_modifications $2
+            elif [ $3 == "-mt" ]
+            then
+                if [[ "$4"  =~ ^([0-9]+) ]]
+                then
+                    _check_for_modifications $2 $4
+                else
+                    _help
+                fi
+            else
+                _help
+            fi
         fi
     else
         _help
