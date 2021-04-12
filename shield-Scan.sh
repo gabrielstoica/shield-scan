@@ -25,10 +25,12 @@ raports_directory=$PWD"/raports"
 log_file="log_file.txt" #log file where incidents are journalized
 json_file="incidents.json"
 url_file="url_file.txt"
-json_content="["
+json_content=""
+verbose_mode=0
 
 #DEFINE COLORS AREA
 RED="tput setaf 1"
+YELLOW="tput setaf 3"
 WHITE="tput setaf 7"
 RED_BG="tput setab 1"
 GREEN_BG="tput setab 2"
@@ -98,7 +100,9 @@ function _scan_uploads(){
     fi
     
     check_result=0
+    echo $1
     _compute_backup_integrity $1
+    uploads_dir=$1
     
     while [ $check_result -eq 0 ]
     do
@@ -121,7 +125,10 @@ function _scan_uploads(){
                     exit 1
                     check_result=1
                 else
-                    echo "scanning.."
+                    if [ $verbose_mode -eq 1 ]
+                    then
+                        echo "scanning.."
+                    fi
                     echo -e "[ "$current_time" ] NO PROBLEMES FOUND" >> $log_file
                     check_result=0
                 fi
@@ -156,7 +163,6 @@ function _create_url_file(){
     local line=$1
     local line_number=$2
     
-    #echo $line
     local check_for_url=$(echo $line | egrep -o "(https?|ftp|file)://[-A-Za-z0-9\+&@#/%?=~_|\!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]")
     
     #send to Google Safe Browsing API
@@ -164,10 +170,8 @@ function _create_url_file(){
     #is not on Green List
     if [[ ! -z "$check_for_url" ]]
     then
-        #echo "Linia $line_number, cu URL-ul: $check_for_url"
         for url in $check_for_url
         do
-            #echo $url
             echo -e $line_number" --> " $url >> $url_file
         done
     fi
@@ -246,8 +250,11 @@ function _compare_fingerprints(){
     local file_hash=$(sha256sum $FILE | awk '{print $1}')
     local trusted_hash=$(grep $file_name $integrity_file | awk '{print $3}' | head -1)
     
-    echo "Trusted hash of " $file_name " " $trusted_hash
-    echo "Actual hash of " $file_name " " $file_hash
+    if [ $verbose_mode -eq 1 ]
+    then
+        echo "Trusted hash of " $file_name " " $trusted_hash
+        echo "Actual hash of " $file_name " " $file_hash
+    fi
     
     current_time=$(date +"%Y-%m-%d %T")
     if [ -z $trusted_hash ]  #hash not found => new file
@@ -256,26 +263,28 @@ function _compare_fingerprints(){
         echo -e "$($BOLD)$WARNING Fisier nou adaugat: "$file_name
         echo -e "Ultima modificare asupra fisierului a fost la data "$last_modification
         echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/$file_name"" >> $log_file
-        _write_to_json_content $PWD $file_name "integrity" "Fisier nou" $current_time
-
+        _write_to_json_content $config_dir $file_name "integrity" "Fisier nou" $current_time
+        
     elif [ "$file_hash" != "$trusted_hash" ] #hash not equal with trusted one => file modifications
     then
         
         echo -e "$($BOLD)$WARNING Fisierul "$file_name" a fost modificat!"
         echo -e "Verificati fisierul raport_"$file_name" pentru a investiga incidentul!"
         echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/"raport_"$file_name".txt" >> $log_file
-        _write_to_json_content $PWD $file_name "integrity" "Integritate" $current_time
-
+        _write_to_json_content $config_dir $file_name "integrity" "Integritate" $current_time
+        
         _generate_raport $FILE $file_name
     else
-        echo -e "$CONFIRM Integritatea fisierului "$file_name" confirmata!"
+        if [ $verbose_mode -eq 1 ]
+        then
+            echo -e "$CONFIRM Integritatea fisierului "$file_name" confirmata!"
+        fi
         echo -e "[ "$current_time" ] CONFIRM: Integritatea fisierului "$file_name" confirmata!" >> $log_file
     fi
 }
 
 function _generate_raport(){
-    #$1 compromised FILE
-    #$2 backup FILE
+    
     local FILE=$1
     local file_name=$2
     local file_name_basename=$(basename $file_name)
@@ -288,7 +297,6 @@ function _generate_raport(){
     echo -e "Fisierul a fost modificat la data "$last_modification >> $raport_location
     echo -e "Urmatoarele modificari au avut loc:" >> $raport_location
     echo $modifications >> $raport_location
-    #local generate_raport=$(sdiff $config_dir_backup"/"$file_name $FILE >> $raport_location)
 }
 
 function _check_integrity(){
@@ -311,6 +319,7 @@ function _check_for_modifications(){
     local directory=$1
     local mtime_value=$2
     local check_directory_name=$(echo "${directory: -1}")
+    local current_date=$(date +"%Y-%m-%d")
     
     if [ $check_directory_name != "/" ]
     then
@@ -320,9 +329,26 @@ function _check_for_modifications(){
     
     if [ ! -z "$mtime_value" ]
     then
-        find $directory -mtime $mtime_value
+        mtime_value=$2
     else
-        find $directory -mtime -1
+        mtime_value=1
+    fi
+    
+    local files_modified=$(find $directory -mtime -$mtime_value)
+    local files_number=$(find $directory -mtime -$mtime_value | wc -l)
+    local total_files=$(ls $directory | wc -l)
+    local past_date=$(date -d "$mtime_value day ago" +"%Y-%m-%d")
+    
+    if [ -z "$files_modified" ]
+    then
+        echo -e "Au fost identificate 0 fisiere modificate in perioada "$past_date" -- "$current_date
+    else
+        echo -e "Director scanat:" $1
+        echo -e "Fisiere scanate:" $total_files
+        echo -e "Fisiere modificate:" $files_number
+        echo -e "Au fost identificate urmatoarele fisiere modificate in perioada "$past_date" -> "$current_date"\n"
+        echo $files_modified | tr " " "\n"
+        
     fi
     
 }
@@ -330,13 +356,19 @@ function _check_for_modifications(){
 function _write_to_json_file(){
     
     json_content=${json_content::-1}
-    json_content=${json_content}"]"
     
+    local old_json_content=""
     if [ ! -f $json_file ]
     then
         touch $json_file
+        json_content="["${json_content}"]"
     else
+        old_json_content=$(cat $json_file)
+        old_json_content=${old_json_content::-1}
+        old_json_content=${old_json_content}","
+        old_json_content=${old_json_content}${json_content}"]"
         > $json_file
+        json_content=${old_json_content}
     fi
     
     echo -e $json_content | jq '.' >> $json_file
@@ -345,91 +377,147 @@ function _write_to_json_file(){
 #parametrii
 #$1 - platforma, $2 - fisier, $3 - mod, $4 - tip amenintare, $5 - data
 function _write_to_json_content(){
-
+    
     json_content=${json_content}"{\"platforma\":\""$1"\",";
     json_content=${json_content}"\"fisier\":\""$2"\",";
     json_content=${json_content}"\"mod\":\""$3"\",";
     json_content=${json_content}"\"tip_amenintare\":\""$4"\",";
     json_content=${json_content}"\"data\":\""$5"\"},";
-
+    
 }
 
 function _help(){
     
-    usage="\nshield scan – Scrip creat pentru detectia fisierelor noi incarcate in cadrul unui director sensibil \nsi detectarea potentialelor modificari asupra integritatii fisierelor, precum si a atacurilor de tip RCE, XSS si URL phishing \n(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \nMod de utilizare: ./$(basename "$0") [-h] [-u /path/to/uploads/] [-i /path/to/backup/ path/to/actual/] [-d /path/to/file.txt]  \n \navand semnificatia: \n \t -h, -help \n \t\tAjutor, arata modul de utilizare \n \t -u, -uploads [/path/to/directory]  \n \t\tScanarea unui director pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n \t -i, -integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale \n\t\tmodificari malitioase, precum: atacuri de tip XSS, inserare de cod Javascript, URL-uri de tip phishing \n \t -d, -detect [/path/to/file.txt] \n \t\tEfectueaza scanarea completa a unui \n \t\tfisier dat ca parametru, impotriva atacurilor de tip XSS, Javascript code, URL-uri de tip phishing "
-    
+    usage="\n\tUtilitar conceput pentru detectia modificarilor si analiza integritatii fisierelor \n\t\tdin cadrul unui director, pentru a putea anticipa comportamente\n\t anormale si reactiona in cazul atacurilor de tip RCE, XSS si URL phishing \n\n\t\t(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \nMod de utilizare: ./$(basename "$0") [-h] OPTIONS {target} \n \navand semnificatia: \n \t -h, --help \n \t\tAjutor, arata modul de utilizare \n\n \t -u, --uploads [/path/to/directory]  \n \t\tScanaza un director tinta pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n\n \t -i, --integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale \n\t\tmodificari\n\n \t -d, --detect [/path/to/file.txt] \n \t\tEfectueaza scanarea completa a unui fisier dat ca parametru,\n \t\timpotriva atacurilor de tip XSS, Javascript code,\n\t\tURL-uri de tip phishing\n \n \t -cm, --check-mod [/path/to/directory/] [-mt N] \n \t\tEfectueaza scanarea completa a unui director dat ca parametru,\n \t\tsi identifica fisierele care au suferit modificari\n\t\tin ultimele N zile\n\n\t -v, --verbose \n\t\tActiveaza modul afisare explicita, determinand utilitarul sa afiseze \n\t\tinformatii intermediare intre operatiile efectuate"
+    $YELLOW
     cat $logo_file
+    $RESET
     echo -e $usage
 }
 
 
 function main(){
+    
+    local help_mode=0
+    local uploads_mode=0
+    local integrity_mode=0
+    local detect_mode=0
+    local check_mode=0
+    local undefined_mode=0
+    
+    local directory=""
+    local backup_directory=""
+    local file=""
+    local mtime=1
+    
     if [ $# -eq 0 ]
     then
         _help
-    elif [ $1 == "--help" ] || [ $1 == "-h" ]
-    then
-        _help
-    elif [ $1 == "-uploads" ] || [ $1 == "-u" ]
-    then
-        if [ -d $2 ]
+    else
+        for (( arg=1; arg<=$#; arg++ ))
+        do
+            case ${!arg} in
+                -h|--help)
+                    help_mode=1;
+                ;;
+                -u|--uploads)
+                    uploads_mode=1;
+                    shift;
+                    directory=${!arg};
+                ;;
+                -v|--verbose)
+                    verbose_mode=1;
+                ;;
+                -i|--integrity)
+                    integrity_mode=1;
+                    shift;
+                    backup_directory=${!arg};
+                    shift;
+                    directory=${!arg};
+                ;;
+                -d|--detect)
+                    detect_mode=1;
+                    shift;
+                    file=${!arg};
+                ;;
+                -cm|--check-mod)
+                    check_mode=1;
+                    shift;
+                    directory=${!arg};
+                ;;
+                -mt|--mtime)
+                    shift;
+                    mtime=${!arg};
+                ;;
+                *)
+                    undefined_mode=1;
+                ;;
+            esac
+        done
+        
+        
+        if [ $undefined_mode -eq 1 ]
         then
-            cat $logo_file
-            uploads_dir=$2
-            _scan_uploads $uploads_dir
-        else
+            echo -e "Scanare esuata! Parametru invalid. Consultati ./shield-Scan.sh --help"
+        elif [ $help_mode -eq 1 ]
+        then
             _help
-        fi
-    elif [ $1 == "-integrity" ] || [ $1 == "-i" ]
-    then
-        if [ -d $2 ] && [ -d $3 ]
+        elif [ $uploads_mode -eq 1 ]
         then
-            to_be_scanned=$(find $config_dir -type f| wc -l)
-            cat $logo_file
-            config_dir_backup=$2
-            config_dir=$3
-            _scan_integrity
-            _write_to_json_file
-            
-            echo -e "Scanare completa! Au fost scanate $scanned/$to_be_scanned fisiere!"
-            echo -e "Folderul de back-up: $config_dir_backup contine $(find $config_dir_backup -type f | wc -l) fisiere"
-            echo -e "Folderul scanat: $config_dir contine $(find $config_dir -type f | wc -l) fisiere"
-            
-        else
-            _help
-        fi
-    elif [ $1 == "-detect" ] || [ $1 == "-d" ]
-    then
-        if [ ! -f $2 ]
-        then
-            echo -e "Nu s-a putut realiza deschiderea fisierului $2!"
-        else
-            cat $logo_file
-            _detect $PWD"/"$2
-        fi
-    elif [ $1 == "-check_mod" ] || [ $1 == "-cm" ]
-    then
-        if [[ (! -d $2) || ( -z $2 ) ]]
-        then
-            _help
-        else
-            if [ -z $3 ]
+            if [ -d $directory ]
             then
-                _check_for_modifications $2
-            elif [ $3 == "-mt" ]
+                echo -e "Scanarea continua a inceput! Utilitarul scaneaza directorul: "$directory
+                _scan_uploads $directory
+            else
+                _help
+            fi
+        elif [ $integrity_mode -eq 1 ]
+        then
+            if [ -d $directory ] && [ -d $backup_directory ]
             then
-                if [[ "$4"  =~ ^([0-9]+) ]]
+                config_dir_backup=$backup_directory
+                config_dir=$directory
+                
+                to_be_scanned=$(find $config_dir -type f | wc -l)
+                echo -e "\n\t\t Procesul de scanare a inceput! \n"
+                
+                _scan_integrity
+                _write_to_json_file
+                
+                echo -e "##################################################################"
+                echo -e "Scanare completa! Au fost scanate $scanned / $to_be_scanned fisiere!"
+                echo -e "Folderul de back-up: $config_dir_backup contine $(find $config_dir_backup -type f | wc -l) fisiere"
+                echo -e "Folderul scanat: $config_dir contine $(find $config_dir -type f | wc -l) fisiere"
+                
+            else
+                _help
+            fi
+        elif [ $detect_mode -eq 1 ]
+        then
+            if [ ! -f $file ]
+            then
+                echo -e "Nu s-a putut realiza deschiderea fisierului $file!"
+            else
+                cat $logo_file
+                _detect $PWD"/"$file
+            fi
+        elif [ $check_mode -eq 1 ]
+        then
+            if [[ ( ! -d $directory ) || ( -z $directory ) ]]
+            then
+                _help
+            else
+                if [[ "$mtime"  =~ ^([0-9]+) ]]
                 then
                     _check_for_modifications $2 $4
                 else
                     _help
                 fi
-            else
-                _help
             fi
+        else
+            _help
         fi
-    else
-        _help
+        
     fi
 }
 
