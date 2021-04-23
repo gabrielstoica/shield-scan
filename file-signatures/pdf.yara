@@ -3,7 +3,7 @@ rule pdf_signature{
 		description="PDF Magic bytes"
 		author="Stoica Gabriel-Marius"
 	strings:
-		$pdf_string={25 50 44 46 2d}
+		$a={25 50 44 46 2d}
 	condition:
-		$pdf_strings at 0
+		$a at 0
 }

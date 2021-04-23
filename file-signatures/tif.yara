@@ -6,7 +6,7 @@ rule tif_signature{
 		$a={49 49 2A 00}
 		$b={4D 4D 00 2A}
 	condition:
-		uint32(0) == $a
-		or uint32(0) == $b
+		$a at 0
+		or $b at 0
 
 }

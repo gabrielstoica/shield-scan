@@ -5,5 +5,5 @@ rule der_signature{
 	strings:
 		$a={30 82}
 	condition:
-		uint16(0) == $a
+		$a at 0
 }

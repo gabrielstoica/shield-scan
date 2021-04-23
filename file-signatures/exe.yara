@@ -5,5 +5,5 @@ rule exe_dll_signature{
 	strings:
 		$a={4D 5A}
 	condition:
-		uint16(0) == $a
+		$a at 0
 }

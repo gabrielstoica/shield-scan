@@ -5,5 +5,5 @@ rule vpk_signature{
 	strings:
 		$a={34 12 AA 55}
 	condition:
-		uint32(0) == $a
+		$a at 0
 }

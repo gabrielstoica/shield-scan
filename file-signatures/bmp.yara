@@ -5,5 +5,5 @@ rule bmp_signature{
 	strings:
 		$a={42 4D}
 	condition:
-		uint16(0) == $a
+		$a at 0
 }

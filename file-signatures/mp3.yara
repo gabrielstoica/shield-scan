@@ -8,8 +8,8 @@ rule mp3_signature{
 		$c={FF F2}
 		$d={49 44 33}
 	condition:
-		uint16(0) == $a
-		or uint16(0) == $b
-		or uint16(0) == $c
+		$a at 0
+		or $b at 0
+		or $c at 0
 		or $d at 0
 }

@@ -8,8 +8,8 @@ rule jpg_signature{
 		$c={FF D8 FF EE}
 		$d={FF D8 FF E1 ?? ?? 45 78 69 66 00 00}
 	condition:
-		uint32(0) == $a
+		$a at 0
 		or $b at 0
-		or uint32(0) == $c
+		or $c at 0
 		or $d at 0
 }
