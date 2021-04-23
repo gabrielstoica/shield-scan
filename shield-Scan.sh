@@ -2,12 +2,13 @@
 set -e
 
 #SOURCES
-source google_safe_browsing.sh
+source api/google_safe_browsing.sh
 
 #DEFINE VARIABLES
 script_pid=$$
 fingerprints_uploads_dir=$PWD"/fingerprints_uploads" #directory where SHA-256 hashes of files in uploads/ directory are stored
 logo_file="logo.txt"
+signatures_files_folder="file-signatures/"
 to_be_scanned=0
 scanned=0
 
@@ -33,6 +34,7 @@ RED="tput setaf 1"
 YELLOW="tput setaf 3"
 WHITE="tput setaf 7"
 RED_BG="tput setab 1"
+GREEN="tput setaf 2"
 GREEN_BG="tput setab 2"
 RESET="tput sgr 0"
 BOLD="tput bold"
@@ -41,6 +43,9 @@ BOLD="tput bold"
 WARNING="$($RED_BG)ATENTIE!$($RESET) $($WHITE)"
 CONFIRM="$($GREEN_BG)INTEGRITATE CONFIRMATA!$($RESET) $($WHITE)"
 NO_XSS="$($GREEN_BG)NU S-A DETECTAT CONTINUT XSS MALITIOS!$($RESET) $($WHITE)"
+PLUS="$($GREEN) $($BOLD) [+] $($RESET)"
+MINUS="$($RED) $($BOLD) [-] $($RESET)"
+INFO="$($YELLOW) $($BOLD) [!] $($RESET)"
 
 ############################################################
 #Functie care compara hash-urile fisierelor actuale, cu    #
@@ -177,11 +182,36 @@ function _create_url_file(){
     fi
 }
 
+function _detect_using_yara(){
+    local FILE=$1
+    local yara_folder=$2
+    local yara_rules=$3
+    local yara_rule_response=""
+    
+    echo -e "${INFO}$($BOLD)Scanarea fisierului $FILE a inceput!\nReguli YARA folosite: "$yara_rules"$($RESET)\n"
+    for YARA in $yara_folder"/"*
+    do
+        if [[ ( -f "$YARA" ) && ( "${YARA: -5}" == ".yara" ) ]]
+        then
+            local yara_rule_name="${YARA##$yara_folder"/"}"
+            yara_rule_response=$(yara $YARA $FILE)
+            local check_response_type=$(echo $yara_rule_response | cut -d " " -f1)
+            if [ -z $check_response_type ]
+            then
+                echo -e "${PLUS}Test ${yara_rule_name}: $($GREEN)$($BOLD)TRECUT$($RESET)"
+            else
+                echo -e "${MINUS}Test ${yara_rule_name}: $($RED)$($BOLD)PICAT$($RESET)"
+            fi
+        fi
+    done
+    
+    
+}
 ###########################################################
 #Functie care scaneaza un fisier impotriva atacurilor de  #
 #tip XSS, Javascript injection si URL-uri malitioase      #
 ###########################################################
-function _detect(){
+function _detect_shield_scan(){
     local FILE=$1
     local blacklist=("xss" "XSS" "onmouseover" "alert" "onerror" "document" "cookie" "document.cookie" "JaVaScRiPt" "iframe")
     local line_number=1
@@ -192,13 +222,15 @@ function _detect(){
         > $url_file
     fi
     
-    echo -e "Scanarea fisierului impotriva atacurilor de tip XSS a inceput..."
-    sleep 2
+    $YELLOW
+    $BOLD
+    cat $logo_file
+    $RESET
+    echo -e "\n${PLUS} $($BOLD)Scanarea fisierului impotriva atacurilor de tip XSS a inceput...$($RESET)\n"
     
     local found=0
     local total_warnings=0
     while read line; do
-        #sleep 1
         _create_url_file "$line" $line_number
         
         #loop through every line from file
@@ -213,8 +245,8 @@ function _detect(){
                 if [[ "$word" =~ $item ]] && [ $found -eq 0 ]
                 then
                     echo -e "******************* $WARNING*******************"
-                    echo "A fost detectat continut potential malitios pe linia $line_number: cod JAVASCRIPT, potential atac de tip XSS"
-                    echo -e $line"\n"
+                    echo "${MINUS}A fost detectat continut potential malitios pe linia $line_number: cod JAVASCRIPT, potential atac de tip XSS"
+                    echo -e ${INFO} $($BOLD) $line $($RESET)"\n"
                     found=1
                     total_warnings=$((total_warnings+1))
                 fi
@@ -229,9 +261,10 @@ function _detect(){
         echo -e "Scanarea fisierului impotriva atacurilor de tip XSS a fost finalizata!"
     else
         echo -e "Scanarea fisierului impotriva atacurilor de tip XSS a fost finalizata!"
+        echo -e "Au fost identificate "$total_warnings" atacuri de tip XSS!"
     fi
     
-    echo -e "\nScanning file against malicious URLs..."
+    echo -e "\n${PLUS} $($BOLD)Scanarea impotriva atacurilor de tip phishing a inceput...$($RESET)"
     _api_create_json "$url_file"
     
 }
@@ -386,9 +419,42 @@ function _write_to_json_content(){
     
 }
 
+function _file_extension_check(){
+    local FILE=$1
+    local actual_file_extension=$(echo $FILE | cut -d "." -f2 )
+    local check_for_extension=$(ls $signatures_files_folder | grep $actual_file_extension)
+    
+    if [ ! -z "$check_for_extension" ]
+    then
+        local real_file_extension=$(yara $signatures_files_folder$actual_file_extension".yara" $FILE)
+        if [ ! -z "$real_file_extension" ]
+        then
+            echo -e "${PLUS}$($BOLD)Extensie confirmata: .${actual_file_extension}$($RESET)"
+        else
+            echo -e "${MINUS}$($BOLD)Extensie mascata! Fisierul $FILE nu este de tipul ${actual_file_extension}"
+            echo -e "${INFO}Se incearca identificarea extensiei reale.."
+            for EXTENSION in $signatures_files_folder*
+            do
+                local real_file_extension=$(yara --no-warnings $EXTENSION $FILE)
+                local rule=$(echo $EXTENSION | cut -d "/" -f2 | cut -d "." -f1)
+                if [ ! -z "$real_file_extension" ]
+                then
+                    echo -e "${PLUS}$($BOLD)Extensie identificata: .${rule}$($RESET)"
+                    exit 1
+                else
+                    echo -e "${MINUS}Extensie verificata: .${rule}"
+                fi
+            done
+        fi
+    else
+        echo -e "{INFO}$($BOLD)Nu a fost identificata nicio regula YARA pentru extensia "$actual_file_extension"$($RESET)"
+    fi
+    
+}
+
 function _help(){
     
-    usage="\n\t$($BOLD)Utilitar conceput pentru detectia modificarilor si analiza integritatii fisierelor \n\t\tdin cadrul unui director, pentru a putea anticipa comportamente\n\t malitioase si reactiona in cazul atacurilor de tip RCE, XSS si URL phishing \n\n\t\t(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \n$($RESET)Mod de utilizare: ./$(basename "$0") [-h] OPTIONS {target} \n \navand semnificatia: \n \t -h, --help \n \t\tAjutor, arata modul de utilizare \n\n \t -u, --uploads [/path/to/directory]  \n \t\tScanaza un director tinta pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n\n \t -i, --integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale \n\t\tmodificari\n\n \t -d, --detect [/path/to/file.txt] \n \t\tEfectueaza scanarea completa a unui fisier dat ca parametru,\n \t\timpotriva atacurilor de tip XSS, Javascript code,\n\t\tURL-uri de tip phishing\n \n \t -cm, --check-mod [/path/to/directory/] [-mt N] \n \t\tEfectueaza scanarea completa a unui director dat ca parametru,\n \t\tsi identifica fisierele care au suferit modificari\n\t\tin ultimele N zile\n\n\t -v, --verbose \n\t\tActiveaza modul afisare explicita, determinand utilitarul sa afiseze \n\t\tinformatii intermediare intre operatiile efectuate"
+    usage="\n\t$($BOLD)Utilitar conceput pentru detectia modificarilor si analiza integritatii fisierelor \n\t\tdin cadrul unui director, pentru a putea anticipa comportamente\n\t malitioase si reactiona in cazul atacurilor de tip RCE, XSS si URL phishing \n\n\t\t(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \n$($RESET)Mod de utilizare: ./$(basename "$0") [-h] OPTIONS {target} \n \navand semnificatia: \n \t -h, --help \n \t\tAjutor, arata modul de utilizare\n\n\t -f, --file\n\t\tSpecifica fisierul ce urmeaza a fi scanat\n\n\t -v, --verbose \n\t\tActiveaza modul afisare explicita, determinand utilitarul sa afiseze \n\t\tinformatii intermediare intre operatiile efectuate\n\n\t -e, --extension\n\t\tVerifica daca extensia fisierului dat ca parametru este cea reala.\n\t\tIn caz contrat, incearca identificarea extensiei reale\n\n \t -u, --uploads [/path/to/directory]  \n \t\tScanaza un director tinta pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n\n \t -i, --integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale \n\t\tmodificari\n\n \t -d, --detect [/path/to/file.txt] \n \t\tEfectueaza scanarea completa a unui fisier dat ca parametru,\n \t\timpotriva atacurilor de tip XSS, Javascript code,\n\t\tURL-uri de tip phishing\n \n \t -cm, --check-mod [/path/to/directory/] [-mt N] \n \t\tEfectueaza scanarea completa a unui director dat ca parametru,\n \t\tsi identifica fisierele care au suferit modificari\n\t\tin ultimele N zile\n\n\t -y, --yara [PARAMETRU]\n\t\tScaneaza fisierul dat ca parametru utilizand reguli YARA pentru a\n\t\tidentifica IOC-uri si alte tipuri de atacuri. Suporta urmatoarele\n\t\ttipuri de PARAMETRII: wordpress, joomla, drupal, xss, sql, cryptojacking"
     $YELLOW
     $BOLD
     cat $logo_file
@@ -405,10 +471,13 @@ function main(){
     local detect_mode=0
     local check_mode=0
     local undefined_mode=0
+    local yara_mode=0
+    local extension_mode=0
     
     local directory=""
     local backup_directory=""
     local file=""
+    local yara_rule_type=""
     local mtime=1
     
     if [ $# -eq 0 ]
@@ -436,10 +505,15 @@ function main(){
                     shift;
                     directory=${!arg};
                 ;;
-                -d|--detect)
-                    detect_mode=1;
+                -f|--file)
                     shift;
                     file=${!arg};
+                ;;
+                -e|--extension)
+                    extension_mode=1;
+                ;;
+                -d|--detect)
+                    detect_mode=1;
                 ;;
                 -cm|--check-mod)
                     check_mode=1;
@@ -449,6 +523,11 @@ function main(){
                 -mt|--mtime)
                     shift;
                     mtime=${!arg};
+                ;;
+                -y|--yara)
+                    shift;
+                    yara_mode=1;
+                    yara_rule_type=${!arg};
                 ;;
                 *)
                     undefined_mode=1;
@@ -495,12 +574,35 @@ function main(){
             fi
         elif [ $detect_mode -eq 1 ]
         then
-            if [ ! -f $file ]
+            if [ -z "$file" ]
+            then
+                _help
+            elif [ ! -f $file ]
             then
                 echo -e "Nu s-a putut realiza deschiderea fisierului $file!"
             else
-                cat $logo_file
-                _detect $PWD"/"$file
+                _detect_shield_scan $PWD"/"$file
+            fi
+        elif [ $extension_mode -eq 1 ]
+        then
+            if [ -f $file ]
+            then
+                _file_extension_check $file
+            else
+                echo -e "Nu s-a putut realiza deschiderea fisierului $file!"
+            fi
+        elif [ $yara_mode -eq 1 ]
+        then
+            if [ ! -f $file ]
+            then
+                echo -e "Nu s-a putut realiza deschiderea fisierului $file!"
+            elif  [[ ( ! -z $yara_rule_type ) && ( -d "yara-rules/"$yara_rule_type ) ]]
+            then
+                local yara_rule="all"
+                yara_rule=$yara_rule_type
+                _detect_using_yara $PWD"/"$file "yara-rules/"$yara_rule $yara_rule
+            else
+                echo -e "Optiune inexistenta, yara rules: wordpress, joomla, drupal, xss, sql, shell, crypto"
             fi
         elif [ $check_mode -eq 1 ]
         then
