@@ -10,6 +10,7 @@ fingerprints_uploads_dir=$PWD"/fingerprints_uploads" #directory where SHA-256 ha
 logo_file="logo.txt"
 signatures_files_folder="file-signatures/"
 to_be_scanned=0
+altered_files=0
 scanned=0
 
 #VARIABLES FOR INTEGRITY OPTION
@@ -300,7 +301,7 @@ function _compare_fingerprints(){
         
     elif [ "$file_hash" != "$trusted_hash" ] #hash not equal with trusted one => file modifications
     then
-        
+        altered_files=$((altered_files+1))
         echo -e "$($BOLD)$WARNING Fisierul "$file_name" a fost modificat!"
         echo -e "Verificati fisierul raport_"$file_name" pentru a investiga incidentul!"
         echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/"raport_"$file_name".txt" >> $log_file
@@ -390,13 +391,12 @@ function _write_to_json_file(){
     
     json_content=${json_content::-1}
     
-    local old_json_content=""
-    if [ ! -f $json_file ]
+    local old_json_content=$(cat $json_file)
+    if [[ ( ! -f $json_file ) || ( -z "$old_json_content" ) ]]
     then
         touch $json_file
         json_content="["${json_content}"]"
     else
-        old_json_content=$(cat $json_file)
         old_json_content=${old_json_content::-1}
         old_json_content=${old_json_content}","
         old_json_content=${old_json_content}${json_content}"]"
@@ -558,17 +558,24 @@ function main(){
                 config_dir_backup=$backup_directory
                 config_dir=$directory
                 
-                to_be_scanned=$(find $config_dir -type f | wc -l)
                 echo -e "\n\t\t Procesul de scanare a inceput! \n"
-                
+                local START_TIME=$SECONDS
                 _scan_integrity
                 _write_to_json_file
+
+                local ELAPSED_TIME=$(($SECONDS - $START_TIME))
                 
+                scanned=$(find $config_dir -type f | wc -l)
+                to_be_scanned=$(find $config_dir_backup -type f | wc -l)
                 echo -e "##################################################################"
-                echo -e "Scanare completa! Au fost scanate $scanned / $to_be_scanned fisiere!"
-                echo -e "Folderul de back-up: $config_dir_backup contine $(find $config_dir_backup -type f | wc -l) fisiere"
-                echo -e "Folderul scanat: $config_dir contine $(find $config_dir -type f | wc -l) fisiere"
-                
+                echo -e "${PLUS}$($BOLD)Scanare completa! $($RESET)"
+                echo -e "${INFO}Durata scanare: $($BOLD)$(date -u -d @$ELAPSED_TIME +%H:%M:%S) secunde $($RESET)"
+                echo -e "${INFO}Folderul de back-up: $($BOLD)$config_dir_backup$($RESET)"
+                echo -e "${INFO}Folderul scanat: $($BOLD)$config_dir$($RESET)"
+                echo -e "${INFO}Total fisier folder de back-up: $($BOLD)$to_be_scanned $($RESET)"
+                echo -e "${INFO}Total fisier folder scanat: $($BOLD)$scanned $($RESET)"
+                echo -e "${MINUS}Total fisiere infectate: $($BOLD)$altered_files $($RESET)"
+                echo -e
             else
                 _help
             fi
