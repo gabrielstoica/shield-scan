@@ -189,7 +189,7 @@ function _detect_using_yara(){
     local yara_rules=$3
     local yara_rule_response=""
     
-    echo -e "${INFO}$($BOLD)Scanarea fisierului $FILE a inceput!\nReguli YARA folosite: "$yara_rules"$($RESET)\n"
+    echo -e "${INFO}$($BOLD)Scanarea fisierului $FILE a inceput!\n${INFO}Reguli YARA folosite: $($BOLD)"$yara_rules"$($RESET)\n"
     for YARA in $yara_folder"/"*
     do
         if [[ ( -f "$YARA" ) && ( "${YARA: -5}" == ".yara" ) ]]
@@ -245,7 +245,7 @@ function _detect_shield_scan(){
                 
                 if [[ "$word" =~ $item ]] && [ $found -eq 0 ]
                 then
-                    echo -e "******************* $WARNING*******************"
+                    echo -e "${INFO}******************* $WARNING*******************"
                     echo "${MINUS}A fost detectat continut potential malitios pe linia $line_number: cod JAVASCRIPT, potential atac de tip XSS"
                     echo -e ${INFO} $($BOLD) $line $($RESET)"\n"
                     found=1
@@ -261,8 +261,8 @@ function _detect_shield_scan(){
         echo -e "*******************$NO_XSS*******************"
         echo -e "Scanarea fisierului impotriva atacurilor de tip XSS a fost finalizata!"
     else
-        echo -e "Scanarea fisierului impotriva atacurilor de tip XSS a fost finalizata!"
-        echo -e "Au fost identificate "$total_warnings" atacuri de tip XSS!"
+        echo -e "${PLUS}$($BOLD)Scanarea fisierului impotriva atacurilor de tip XSS a fost finalizata!$($RESET)"
+        echo -e "${INFO}$($BOLD)Au fost identificate "$total_warnings" atacuri de tip XSS!$($RESET)"
     fi
     
     echo -e "\n${PLUS} $($BOLD)Scanarea impotriva atacurilor de tip phishing a inceput...$($RESET)"
@@ -352,12 +352,14 @@ function _check_for_modifications(){
     
     local directory=$1
     local mtime_value=$2
+    local basename_directory=$directory
     local check_directory_name=$(echo "${directory: -1}")
     local current_date=$(date +"%Y-%m-%d")
     
     if [ $check_directory_name != "/" ]
     then
         directory+="/"
+        basename_directory+="/"
     fi
     directory+="*"
     
@@ -377,11 +379,17 @@ function _check_for_modifications(){
     then
         echo -e "Au fost identificate 0 fisiere modificate in perioada "$past_date" -- "$current_date
     else
-        echo -e "Director scanat:" $1
-        echo -e "Fisiere scanate:" $total_files
-        echo -e "Fisiere modificate:" $files_number
-        echo -e "Au fost identificate urmatoarele fisiere modificate in perioada "$past_date" -> "$current_date"\n"
-        echo $files_modified | tr " " "\n"
+        echo -e "${INFO}Director scanat:$($BOLD)" $1"$($RESET)"
+        echo -e "${PLUS}Fisiere scanate:$($BOLD)" $total_files
+        echo -e "${MINUS}Fisiere modificate:$($BOLD)" $files_number
+        echo -e "${PLUS}Perioada scanata:$($BOLD)" $past_date" -> "$current_date"\n"
+        echo -e "${PLUS}Fisiere identificate:"
+        for x in $(echo $files_modified | tr " " "\n")
+        do
+            local file_name_x="${x##$basename_directory}"
+            echo -e "${MINUS}$($BOLD)" $file_name_x
+        done
+        #echo -e $files_modified | tr " " "\n"
         
     fi
     
@@ -452,9 +460,17 @@ function _file_extension_check(){
     
 }
 
+function _logo(){
+    $YELLOW
+    $BOLD
+    cat $logo_file
+    echo -e "\n"
+    $RESET
+}
+
 function _help(){
     
-    usage="\n\t$($BOLD)Utilitar conceput pentru detectia modificarilor si analiza integritatii fisierelor \n\t\tdin cadrul unui director, pentru a putea anticipa comportamente\n\t malitioase si reactiona in cazul atacurilor de tip RCE, XSS si URL phishing \n\n\t\t(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \n$($RESET)Mod de utilizare: ./$(basename "$0") [-h] OPTIONS {target} \n \navand semnificatia: \n \t -h, --help \n \t\tAjutor, arata modul de utilizare\n\n\t -f, --file\n\t\tSpecifica fisierul ce urmeaza a fi scanat\n\n\t -v, --verbose \n\t\tActiveaza modul afisare explicita, determinand utilitarul sa afiseze \n\t\tinformatii intermediare intre operatiile efectuate\n\n\t -e, --extension\n\t\tVerifica daca extensia fisierului dat ca parametru este cea reala.\n\t\tIn caz contrat, incearca identificarea extensiei reale\n\n \t -u, --uploads [/path/to/directory]  \n \t\tScanaza un director tinta pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n\n \t -i, --integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale \n\t\tmodificari\n\n \t -d, --detect [/path/to/file.txt] \n \t\tEfectueaza scanarea completa a unui fisier dat ca parametru,\n \t\timpotriva atacurilor de tip XSS, Javascript code,\n\t\tURL-uri de tip phishing\n \n \t -cm, --check-mod [/path/to/directory/] [-mt N] \n \t\tEfectueaza scanarea completa a unui director dat ca parametru,\n \t\tsi identifica fisierele care au suferit modificari\n\t\tin ultimele N zile\n\n\t -y, --yara [PARAMETRU]\n\t\tScaneaza fisierul dat ca parametru utilizand reguli YARA pentru a\n\t\tidentifica IOC-uri si alte tipuri de atacuri. Suporta urmatoarele\n\t\ttipuri de PARAMETRII: wordpress, joomla, drupal, xss, sql, cryptojacking"
+    usage="\n\t$($BOLD)Utilitar conceput pentru detectia modificarilor si analiza integritatii fisierelor\n\t\tde configurare din cadrul platformelor de tip CMS: Wordpress, Drupal si\n\tJoomla, pentru a putea anticipa comportamente malitioase specifice unei game largi de\n\t\t\tatacuri, printre care: XSS, SQL Injection, Phishing \n\n\t\t(c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> \n \n$($RESET)Mod de utilizare: ./$(basename "$0") [-h] OPTIONS {target} \n \navand semnificatia: \n \t -h, --help \n \t\tAjutor, arata modul de utilizare\n\n\t -f, --file\n\t\tSpecifica fisierul ce urmeaza a fi scanat\n\n\t -v, --verbose \n\t\tActiveaza modul afisare explicita, determinand utilitarul sa afiseze \n\t\tinformatii intermediare intre operatiile efectuate\n\n\t -e, --extension\n\t\tVerifica daca extensia fisierului dat ca parametru este cea reala.\n\t\tIn caz contrat, incearca identificarea extensiei reale\n\n \t -u, --uploads [/path/to/directory]  \n \t\tScanaza un director tinta pentru detectia incarcarii noilor fisiere: \n \t\tasteapta ca parametrul calea catre un director \n\n \t -i, --integrity [/path/to/backup/ path/to/actual_dir/] \n \t\tCalculeaza hash-ul fisierelor din folderul de backup si il compara \n\t\tcu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale \n\t\tmodificari\n\n \t -d, --detect [/path/to/file.txt] \n \t\tEfectueaza scanarea completa a unui fisier dat ca parametru,\n \t\timpotriva atacurilor de tip XSS, Javascript code,\n\t\tURL-uri de tip phishing\n \n \t -cm, --check-mod [/path/to/directory/] [-mt N] \n \t\tEfectueaza scanarea completa a unui director dat ca parametru,\n \t\tsi identifica fisierele care au suferit modificari\n\t\tin ultimele N zile\n\n\t -y, --yara [PARAMETRU]\n\t\tScaneaza fisierul dat ca parametru utilizand reguli YARA pentru a\n\t\tidentifica IOC-uri si alte tipuri de atacuri. Suporta urmatoarele\n\t\ttipuri de PARAMETRII: wordpress, joomla, drupal, xss, sql, cryptojacking"
     $YELLOW
     $BOLD
     cat $logo_file
@@ -562,7 +578,7 @@ function main(){
                 local START_TIME=$SECONDS
                 _scan_integrity
                 _write_to_json_file
-
+                
                 local ELAPSED_TIME=$(($SECONDS - $START_TIME))
                 
                 scanned=$(find $config_dir -type f | wc -l)
@@ -607,7 +623,8 @@ function main(){
             then
                 local yara_rule="all"
                 yara_rule=$yara_rule_type
-                _detect_using_yara $PWD"/"$file "yara-rules/"$yara_rule $yara_rule
+                # _logo
+                _detect_using_yara $file "yara-rules/"$yara_rule $yara_rule
             else
                 echo -e "Optiune inexistenta, yara rules: wordpress, joomla, drupal, xss, sql, shell, crypto"
             fi
@@ -619,7 +636,7 @@ function main(){
             else
                 if [[ "$mtime"  =~ ^([0-9]+) ]]
                 then
-                    _check_for_modifications $2 $4
+                    _check_for_modifications $directory $mtime
                 else
                     _help
                 fi
