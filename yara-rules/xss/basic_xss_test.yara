@@ -1,4 +1,4 @@
-rule xss
+rule basic_xss_test
 {
 	meta:
 		description="Rule for detecting XSS in a file"
@@ -13,6 +13,6 @@ rule xss
 		$cookie="cookie" nocase
 		$javascript="javascript" nocase
 	condition:
-		all of them
+		any of them
 		
 }
