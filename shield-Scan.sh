@@ -146,6 +146,13 @@ function _scan_uploads(){
 }
 
 function _scan_integrity(){
+    
+    $YELLOW
+    $BOLD
+    cat $logo_file
+    $RESET
+    echo -e "\n${INFO}$($BOLD)Procesul de scanare a inceput! $($RESET)\n"
+    
     if [ ! -f "$integrity_file" ]
     then
         touch $integrity_file
@@ -160,7 +167,7 @@ function _scan_integrity(){
         rm -Rf $raports_directory/*
     fi
     
-    echo -e "Se calculeaza hash-urile fisierelor din directorul de backup..."
+    echo -e "${PLUS}$($BOLD)Se calculeaza hash-urile fisierelor din directorul de backup...$($RESET)"
     _compute_backup_integrity $config_dir_backup
     _check_integrity $config_dir
 }
@@ -286,34 +293,34 @@ function _compare_fingerprints(){
     
     if [ $verbose_mode -eq 1 ]
     then
-        echo "Trusted hash of " $file_name " " $trusted_hash
-        echo "Actual hash of " $file_name " " $file_hash
+        echo "${INFO}Fisier $($BOLD)" $file_name "$($RESET) hash back-up: $($BOLD)" $trusted_hash"$($RESET)"
+        echo "${INFO}Fisier $($BOLD)" $file_name "$($RESET) hash actual: $($BOLD)" $file_hash"$($RESET)"
     fi
     
     current_time=$(date +"%Y-%m-%d %T")
     if [ -z $trusted_hash ]  #hash not found => new file
     then
         local last_modification=$(date -r $FILE)
-        echo -e "$($BOLD)$WARNING Fisier nou adaugat: "$file_name
-        echo -e "Ultima modificare asupra fisierului a fost la data "$last_modification
-        echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/$file_name"" >> $log_file
+        echo -e "${MINUS}$WARNING Fisier nou adaugat: $($BOLD)"$file_name"$($RESET)"
+        echo -e "${INFO}Ultima modificare asupra fisierului a fost la data "$last_modification
+        echo -e "${PLUS}$($BOLD)["$current_time"]$($RESET)\n${MINUS}ATENTIE: Fisier nou adaugat: $($BOLD)"$file_name"$($RESET)\${INFO}Verificati raportul: $($BOLD)"$raports_directory/$file_name"$($RESET)\n" >> $log_file
         _write_to_json_content $config_dir $file_name "integrity" "Fisier nou" $current_time
         
     elif [ "$file_hash" != "$trusted_hash" ] #hash not equal with trusted one => file modifications
     then
         altered_files=$((altered_files+1))
-        echo -e "$($BOLD)$WARNING Fisierul "$file_name" a fost modificat!"
-        echo -e "Verificati fisierul raport_"$file_name" pentru a investiga incidentul!"
-        echo -e "[ "$current_time" ] WARNING: FILE MODIFICATIONS in "$file_name". CHECK RAPORT FILE: "$raports_directory/"raport_"$file_name".txt" >> $log_file
+        echo -e "${MINUS}$WARNING Fisierul $($BOLD)"$file_name"$($RESET) a fost modificat!"
+        echo -e "${INFO}Verificati fisierul raport_"$file_name" pentru a investiga incidentul!"
+        echo -e "${PLUS}$($BOLD)["$current_time"]$($RESET)\n${MINUS}ATENTIE: Modificari aparute in fisierul: $($BOLD)"$file_name"$($RESET)\n${INFO}Verificati raportul: $($BOLD)"$raports_directory/"raport_"$file_name".txt$($RESET)\n" >> $log_file
         _write_to_json_content $config_dir $file_name "integrity" "Integritate" $current_time
         
         _generate_raport $FILE $file_name
     else
         if [ $verbose_mode -eq 1 ]
         then
-            echo -e "$CONFIRM Integritatea fisierului "$file_name" confirmata!"
+            echo -e "${PLUS}$CONFIRM Integritatea fisierului $($BOLD)"$file_name"$($RESET) confirmata!"
         fi
-        echo -e "[ "$current_time" ] CONFIRM: Integritatea fisierului "$file_name" confirmata!" >> $log_file
+       # echo -e "[ "$current_time" ] CONFIRM: Integritatea fisierului "$file_name" confirmata!" >> $log_file
     fi
 }
 
@@ -573,8 +580,6 @@ function main(){
             then
                 config_dir_backup=$backup_directory
                 config_dir=$directory
-                
-                echo -e "\n\t\t Procesul de scanare a inceput! \n"
                 local START_TIME=$SECONDS
                 _scan_integrity
                 _write_to_json_file
@@ -583,13 +588,16 @@ function main(){
                 
                 scanned=$(find $config_dir -type f | wc -l)
                 to_be_scanned=$(find $config_dir_backup -type f | wc -l)
+                total_size=$(du -shc $config_dir | tail -1)
                 echo -e "##################################################################"
                 echo -e "${PLUS}$($BOLD)Scanare completa! $($RESET)"
+                echo -e "${PLUS}Fisier de log:$($BOLD) $log_file $($RESET)"
                 echo -e "${INFO}Durata scanare: $($BOLD)$(date -u -d @$ELAPSED_TIME +%H:%M:%S) secunde $($RESET)"
                 echo -e "${INFO}Folderul de back-up: $($BOLD)$config_dir_backup$($RESET)"
                 echo -e "${INFO}Folderul scanat: $($BOLD)$config_dir$($RESET)"
                 echo -e "${INFO}Total fisier folder de back-up: $($BOLD)$to_be_scanned $($RESET)"
                 echo -e "${INFO}Total fisier folder scanat: $($BOLD)$scanned $($RESET)"
+                echo -e "${INFO}Total dimensiune date scanate: $($BOLD)$total_size $($RESET)"
                 echo -e "${MINUS}Total fisiere infectate: $($BOLD)$altered_files $($RESET)"
                 echo -e
             else
