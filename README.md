@@ -28,7 +28,14 @@ Shield-scan dispune de urmatoarele moduri de utilizare, si anume:
    ```sh
    \"clientId\": \"NUMELE-UTILIZATORULUI\",
    ```
-  
+5. Modifica permisiunile shield-Scan.sh
+   ```sh
+   chmod +x shield-Scan.sh
+   ```
+6. Ruleaza utilitarul in modul -h,--help pentru a incepe:
+   ```sh
+   ./shield-Scan --help
+   ```
 ## Dependinte & API-uri utilizate
 
 Pentru identificarea URL-urilor potential malitioase, a fost integrat API-ul:
@@ -43,3 +50,69 @@ Pentru identificarea indicatorilor de compromis la nivelul fisierelor scanate su
 [1]: https://stedolan.github.io/jq/
 [2]: https://developers.google.com/safe-browsing/
 [3]: https://yara.readthedocs.io/en/stable/gettingstarted.html
+
+## Help mode
+   ```sh
+     |\                     /)
+ /\_\\__               (_//
+|   `>\-`     _._       //`)  ########  ##     ## #### ######## ##       ######### 
+ \ /` \\  _.-`:::`-._  //    ##         ##     ##  ##  ##       ##       ##      ##  
+  `    \|`    :::    `|/      #######   #########  ##  ######   ##       ##       ##
+        |     :::     |             ##  ##     ##  ##  ##       ##       ##      ## 
+        |:::::::::::::|      ########   ##     ## #### ######## ######## #########
+        |     :::     |    
+         \    :::    /                ########  #######  #######  ##     ##
+          `-. ::: .-'                ##        ##       ##     ## ###    ##
+           //`:::`\\                  #######  ##       ######### ## ##  ## 
+          //   '   \\                       ## ##       ##     ## ##  ## ##
+         |/         \\               ########   ####### ##     ## ##    ###
+
+        Utilitar conceput pentru detectia modificarilor si analiza integritatii fisierelor
+                de configurare din cadrul platformelor de tip CMS: Wordpress, Drupal si
+        Joomla, pentru a putea anticipa comportamente malitioase specifice unei game largi de
+                        atacuri, printre care: XSS, SQL Injection, Phishing 
+
+                (c) Stoica Gabriel-Marius <marius_gabriel1998@yahoo.com> 
+ 
+Mod de utilizare: ./shield-Scan.sh [-h] OPTIONS {target} 
+ 
+avand semnificatia: 
+         -h, --help 
+                Ajutor, arata modul de utilizare
+
+         -f, --file
+                Specifica fisierul ce urmeaza a fi scanat
+
+         -v, --verbose 
+                Activeaza modul afisare explicita, determinand utilitarul sa afiseze 
+                informatii intermediare intre operatiile efectuate
+
+         -e, --extension
+                Verifica daca extensia fisierului dat ca parametru este cea reala.
+                In caz contrat, incearca identificarea extensiei reale
+
+         -u, --uploads [/path/to/directory] 
+                Scanaza un director tinta pentru detectia incarcarii noilor fisiere: 
+                asteapta ca parametrul calea catre un director 
+
+         -i, --integrity [/path/to/backup/ path/to/actual_dir/] 
+                Calculeaza hash-ul fisierelor din folderul de backup si il compara 
+                cu hash-ul fisierelor din folderul scanat, pentru a identifica potentiale 
+                modificari
+
+         -d, --detect [/path/to/file.txt] 
+                Efectueaza scanarea completa a unui fisier dat ca parametru,
+                impotriva atacurilor de tip XSS, Javascript code,
+                URL-uri de tip phishing
+ 
+         -cm, --check-mod [/path/to/directory/] [-mt N] 
+                Efectueaza scanarea completa a unui director dat ca parametru,
+                si identifica fisierele care au suferit modificari
+                in ultimele N zile
+
+         -y, --yara [PARAMETRU]
+                Scaneaza fisierul dat ca parametru utilizand reguli YARA pentru a
+                identifica IOC-uri si alte tipuri de atacuri. Suporta urmatoarele
+                tipuri de PARAMETRII: wordpress, joomla, drupal, xss, sql, cryptojacking
+   ```
+
