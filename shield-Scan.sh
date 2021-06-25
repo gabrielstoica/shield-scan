@@ -79,6 +79,7 @@ function _scan_for_changes(){
 #de back-up dat ca parametru, folosing algoritmul SHA-256 #
 ###########################################################
 function _compute_backup_integrity(){
+
     for FILE in "$1/"*
     do
         if [ -f "$FILE" ]
@@ -343,12 +344,13 @@ function _generate_raport(){
 }
 
 function _check_integrity(){
+
     for ENTRY in "$1/"*
     do
-        if [ -f $ENTRY ]
+        if [ -f "$ENTRY" ]
         then
             _compare_fingerprints $ENTRY
-        elif [ -d $ENTRY ]
+        elif [ -d "$ENTRY" ]
         then
             _check_integrity $ENTRY
         fi
