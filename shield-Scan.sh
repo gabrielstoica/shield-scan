@@ -11,6 +11,7 @@ logo_file="logo.txt"
 signatures_files_folder="file-signatures/"
 to_be_scanned=0
 altered_files=0
+count_new_files=0
 scanned=0
 
 #VARIABLES FOR INTEGRITY OPTION
@@ -300,6 +301,7 @@ function _compare_fingerprints(){
     current_time=$(date +"%Y-%m-%d %T")
     if [ -z $trusted_hash ]  #hash not found => new file
     then
+        count_new_files=$((count_new_files+1))
         local last_modification=$(date -r $FILE)
         echo -e "${MINUS}$WARNING Fisier nou adaugat: $($BOLD)"$file_name"$($RESET)"
         echo -e "${INFO}Ultima modificare asupra fisierului a fost la data "$last_modification
@@ -599,6 +601,7 @@ function main(){
                 echo -e "${INFO}Total fisier folder scanat: $($BOLD)$scanned $($RESET)"
                 echo -e "${INFO}Total dimensiune date scanate: $($BOLD)$total_size $($RESET)"
                 echo -e "${MINUS}Total fisiere infectate: $($BOLD)$altered_files $($RESET)"
+                echo -e "${MINUS}Total fisiere noi: $($BOLD)$count_new_files $($RESET)"
                 echo -e
             else
                 _help
