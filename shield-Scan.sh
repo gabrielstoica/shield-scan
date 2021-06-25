@@ -84,7 +84,7 @@ function _compute_backup_integrity(){
     do
         if [ -f "$FILE" ]
         then
-            local file_hash=$(sha256sum $FILE | awk '{ print $1 }')
+            local file_hash=$(sha256sum "$FILE" | awk '{ print $1 }')
             local file_name="${FILE##$config_dir_backup"/"}"
             echo -e $file_name" --> "$file_hash >> $integrity_file
         elif [ -d "$FILE" ]
@@ -334,7 +334,7 @@ function _generate_raport(){
     local file_name_basename=$(basename $file_name)
     
     local last_modification=$(date -r $FILE)
-    local modifications=$(diff $config_dir_backup$file_name $FILE)
+    local modifications=$(diff $config_dir_backup/$file_name $FILE)
     local raport_location=$(echo $raports_directory/"raport_"$file_name_basename".log")
     
     touch $raport_location
